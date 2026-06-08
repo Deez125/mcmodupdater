@@ -26,7 +26,7 @@ ICON_FILENAME = "icon.png"
 # Accepts a Drive share URL, a plain https URL, or a local file path (handy for testing).
 # While this still starts with "PUT_YOUR", the app runs but tells the user the
 # version list isn't configured yet.
-MANIFEST_URL = "PUT_YOUR_DRIVE_MANIFEST_SHARE_LINK_HERE"
+MANIFEST_URL = "https://raw.githubusercontent.com/Deez125/mcmodupdater/main/manifest.json"
 
 # The folder-name pattern Essential creates per installation, e.g. "26.1.2 Fabric Essential".
 INSTALL_SUFFIX = "Fabric Essential"
