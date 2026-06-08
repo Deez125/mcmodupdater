@@ -1,8 +1,0 @@
-{
-  "_comment": "Template for manifest.json. One entry per Minecraft version, each pointing at that version's mods.zip share link in Drive. 'essential_installer_url' is the direct CDN link to Essential's installer .exe — the wizard downloads it to the user's Downloads folder and launches it. Update the version number in the URL when Essential releases a new installer. Leave it blank to instead open essential.gg and watch Downloads for a manually-grabbed installer.",
-  "essential_installer_url": "https://cdn.essential.gg/installer/3.2.4/essential-installer-3.2.4.exe",
-  "versions": {
-    "1.21.1": { "mods_zip": "https://drive.google.com/file/d/FILE_ID_FOR_1_21_1/view" },
-    "26.1.2": { "mods_zip": "https://drive.google.com/file/d/FILE_ID_FOR_26_1_2/view" }
-  }
-}

@@ -15,25 +15,27 @@ modpack in sync. One person maintains the mods; everyone else clicks a button.
 
 ## How updates work (for the maintainer)
 
-You never recompile the `.exe`. To publish a new version:
+You never recompile the `.exe`. To publish a new game version:
 
 1. Zip that version's mods into a `mods.zip` and upload it to Google Drive
    (shared "Anyone with the link").
-2. Add one line to `manifest.json` mapping the version to that zip's share link,
-   and re-upload it. See [`sample_manifest.json`](sample_manifest.json) for the shape.
+2. Add a version entry to [`manifest.json`](manifest.json) and `git push`:
+   ```json
+   "1.21.11": { "mods_zip": "https://drive.google.com/file/d/NEW_FILE_ID/view" }
+   ```
+   The app reads the manifest live from this repo, so the new version appears in
+   everyone's dropdown within a few minutes — no rebuild.
 
 The only thing baked into the build is `MANIFEST_URL` in
-[`modupdater/config.py`](modupdater/config.py) — the share link to that manifest.
-Set it once. (For local development, if `MANIFEST_URL` is still the placeholder,
-the app automatically uses a `manifest.json` file sitting next to it — see the
-checked-in [`manifest.json`](manifest.json) — so you can test before uploading
-anything to Drive.)
+[`modupdater/config.py`](modupdater/config.py) — the raw link to `manifest.json`
+in this repo. Set once, never touched again.
 
-**The `mods.zip` is the complete mod set** — it includes Essential and Fabric API
-themselves, not just the extras. The Full Install path accounts for this: it wipes
-the mods folder before laying down the zip, so the installer's bundled Essential
-jar can't collide with the zip's copy. (The quick-update path leaves any mods you
-added yourself alone.)
+**Essential comes from its own installer, not the packs.** The Full Install path
+runs Essential's installer (which drops `Essential.jar` into the mods folder),
+then installs the pack. When it wipes the folder for a fresh install, it keeps the
+installer's Essential jar if the pack doesn't ship one. The quick-update path only
+swaps the mods it manages, leaving Essential — and any mods you added yourself —
+untouched.
 
 ## Run from source (dev)
 
@@ -42,19 +44,13 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
-## Test the sync logic (no network, no GUI)
-
-```sh
-python -m tests.test_sync
-```
-
 ## Build the .exe
 
 ```sh
 build.bat
 ```
 
-The result lands in `dist\MC Mod Updater.exe`.
+The result lands in `dist\MCModUpdater.exe`, distributed via GitHub Releases.
 
 ## Layout
 
@@ -66,4 +62,3 @@ The result lands in `dist\MC Mod Updater.exe`.
 | `modupdater/minecraft.py` | Finds `.minecraft`, installations, mods folders. |
 | `modupdater/sync.py` | Safe mod sync via `.modsync.json`. |
 | `modupdater/gui/app.py` | The CustomTkinter wizard. |
-| `tests/test_sync.py` | Headless proof the sync is safe. |
