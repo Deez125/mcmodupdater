@@ -1,0 +1,11 @@
+{
+  "essential_installer_url": "https://cdn.essential.gg/installer/3.2.4/essential-installer-3.2.4.exe",
+  "versions": {
+    "26.1.2": {
+      "mods_zip": "https://drive.google.com/file/d/1ABksjem80ITXAOzuf-KeyvX9_loUNbT6/view?usp=drive_link"
+    },
+    "1.21.10": {
+      "mods_zip": "https://drive.google.com/file/d/1COMbNT6lWWNeqwjvC5j59b7Q65Yk8a4t/view?usp=drive_link"
+    }
+  }
+}
