@@ -4,7 +4,7 @@ REM Run this from the project root after installing deps.
 
 python -m pip install -r requirements-dev.txt
 pyinstaller --noconfirm --onefile --windowed ^
-  --name "MC Mod Updater" ^
+  --name "MCModUpdater" ^
   --collect-all customtkinter ^
   --add-data "icon.png;." ^
   --icon "icon.png" ^
