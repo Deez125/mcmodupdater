@@ -1,11 +1,118 @@
 {
+  "source": {
+    "raw_base": "https://raw.githubusercontent.com/Deez125/mcmodupdater/main/",
+    "api_base": "https://api.github.com/repos/Deez125/mcmodupdater/contents/",
+    "branch": "main",
+    "required_dir": "mods/{version}/required",
+    "optional_dir": "mods/{version}/optional",
+    "images_dir": "mods/{version}/optional/images"
+  },
   "essential_installer_url": "https://cdn.essential.gg/installer/3.2.4/essential-installer-3.2.4.exe",
   "versions": {
     "26.1.2": {
-      "mods_zip": "https://drive.google.com/file/d/1ABksjem80ITXAOzuf-KeyvX9_loUNbT6/view?usp=drive_link"
-    },
-    "1.21.10": {
-      "mods_zip": "https://drive.google.com/file/d/1COMbNT6lWWNeqwjvC5j59b7Q65Yk8a4t/view?usp=drive_link"
+      "required": [
+        { "name": "Biomes O' Plenty", "jar": "BiomesOPlenty" },
+        { "name": "Cardinal Components API", "jar": "cardinal-components-api" },
+        { "name": "Cloth Config", "jar": "cloth-config" },
+        { "name": "Clumps", "jar": "Clumps" },
+        { "name": "Collective", "jar": "collective" },
+        { "name": "Double Doors", "jar": "doubledoors" },
+        { "name": "Entity Model Features", "jar": "entity_model_features" },
+        { "name": "Entity Texture Features", "jar": "entity_texture_features" },
+        { "name": "Explorer's Compass", "jar": "ExplorersCompass" },
+        { "name": "Fabric API", "jar": "fabric-api" },
+        { "name": "Fabric Language Kotlin", "jar": "fabric-language-kotlin" },
+        { "name": "Forge Config API Port", "jar": "ForgeConfigAPIPort" },
+        { "name": "GlitchCore", "jar": "GlitchCore" },
+        { "name": "Infinite Trading", "jar": "infinitetrading" },
+        { "name": "Lithium", "jar": "lithium-fabric" },
+        { "name": "MaLiLib", "jar": "malilib" },
+        { "name": "Nature's Compass", "jar": "NaturesCompass" },
+        { "name": "Portable Villager", "jar": "portable_villager" },
+        { "name": "Prickle", "jar": "PrickleMC" },
+        { "name": "Puzzles Lib", "jar": "PuzzlesLib" },
+        { "name": "RPF", "jar": "rpf" },
+        { "name": "Searchables", "jar": "Searchables" },
+        { "name": "Silk", "jar": "silk-all" },
+        { "name": "Simple Voice Chat", "jar": "voicechat" },
+        { "name": "TerraBlender", "jar": "TerraBlender" },
+        { "name": "Trade Cycling", "jar": "trade-cycling" },
+        { "name": "Traveler's Backpack", "jar": "travelersbackpack" },
+        { "name": "Tree Harvester", "jar": "treeharvester" },
+        { "name": "YetAnotherConfigLib (YACL)", "jar": "yet_another_config_lib" }
+      ],
+      "optional": [
+        {
+          "category": "Performance & FPS",
+          "mods": [
+            { "name": "Sodium", "jar": "sodium-fabric", "image": "sodium.png", "description": "Modern rendering engine that dramatically improves frame rate and reduces stutter." },
+            { "name": "Sodium Extra", "jar": "sodium-extra-fabric", "image": "sodium-extra.png", "description": "Adds extra options to Sodium (fog, particles, FPS display, and more toggles)." },
+            { "name": "Reese's Sodium Options", "jar": "reeses-sodium-options", "image": "reeses-sodium-options.png", "description": "A cleaner, redesigned settings menu for Sodium." },
+            { "name": "FerriteCore", "jar": "ferritecore", "image": "ferritcore.png", "description": "Reduces memory (RAM) usage, leading to fewer lag spikes." },
+            { "name": "Entity Culling", "jar": "entityculling", "image": "entity-culling.png", "description": "Skips rendering entities that are hidden behind blocks, boosting FPS." },
+            { "name": "Iris Shaders", "jar": "iris-fabric", "image": "iris.png", "description": "Adds shader support so you can run shader packs alongside Sodium." }
+          ]
+        },
+        {
+          "category": "Lighting & Visuals",
+          "mods": [
+            { "name": "Gamma Utils", "jar": "Gamma-Utils", "image": "gammautils.png", "description": "Full-brightness and gamma control; lets you brighten the world beyond vanilla limits." },
+            { "name": "LambDynamicLights", "jar": "lambdynamiclights", "image": "lambdynamiclights.png", "description": "Dynamic lighting — held and dropped light sources (torches, glowstone, etc.) actually emit light as you move." }
+          ]
+        },
+        {
+          "category": "HUD & Information",
+          "mods": [
+            { "name": "Jade", "jar": "Jade-", "image": "jade.png", "description": "Shows information about the block or mob you're looking at (name, mod, durability, etc.)." },
+            { "name": "AppleSkin", "jar": "appleskin", "image": "appleskin.png", "description": "Displays detailed hunger and saturation information on the food bar." },
+            { "name": "Shulker Box Tooltip", "jar": "shulkerboxtooltip", "image": "shulkerboxtooltip.png", "description": "Preview the contents of a shulker box just by hovering over it." },
+            { "name": "Enchantment Descriptions", "jar": "EnchantmentDescriptions", "image": "enchantmentdescriptions.png", "description": "Adds tooltips explaining what each enchantment actually does." },
+            { "name": "Just Enough Items (JEI)", "jar": "jei-", "image": "jei.png", "description": "Recipe and item lookup; search any item and see how to craft or obtain it." },
+            { "name": "MiniHUD", "jar": "minihud", "image": "minihud.png", "description": "Customizable on-screen overlay (chunk borders, coordinates, spawn info, and more)." },
+            { "name": "Detail Armor Bar Reconstructed", "jar": "DetailArmorBarReconstructed", "image": "detailarmorbar.png", "description": "Adds armor type and durability detail to the armor HUD bar." },
+            { "name": "Leave My Bars Alone", "jar": "LeaveMyBarsAlone", "image": "leavemybarsalone.png", "description": "Stops the health and hunger bars from jittering or shifting around." }
+          ]
+        },
+        {
+          "category": "Camera & Recording",
+          "mods": [
+            { "name": "Camera Utils", "jar": "camerautils", "image": "camerautils.png", "description": "Camera tweaks like freezing the camera and adjusting perspective." },
+            { "name": "Freecam", "jar": "freecam", "image": "freecam.png", "description": "Detach your camera and fly around freely to view your surroundings." },
+            { "name": "Flashback", "image": "flashback.png", "inactive": true, "description": "Powerful replay and recording tool for capturing and editing cinematic gameplay. Currently unavailable (too large to host)." }
+          ]
+        },
+        {
+          "category": "Building",
+          "mods": [
+            { "name": "Litematica", "jar": "litematica", "image": "litematica.png", "description": "Schematic and blueprint mod for planning, sharing, and building large structures." }
+          ]
+        },
+        {
+          "category": "Maps",
+          "mods": [
+            { "name": "Xaero's World Map", "jar": "xaeroworldmap", "image": "worldmap.png", "description": "Full-screen explorable world map that fills in as you travel." }
+          ]
+        },
+        {
+          "category": "Quality of Life",
+          "mods": [
+            { "name": "Controlling", "jar": "Controlling", "image": "controlling.png", "description": "Adds a search bar to the keybinds menu so you can quickly find and fix controls." },
+            { "name": "Auto Pickup", "jar": "autopickup", "image": "autopickup.png", "description": "Automates item pickup and inventory handling." },
+            { "name": "CutThrough", "jar": "CutThrough", "image": "cuthrough.png", "description": "Lets you continue mining or attacking smoothly through to the next target." },
+            { "name": "Scribble", "jar": "scribble", "image": "scribble.png", "description": "Enhanced book editing with text formatting and extra options." },
+            { "name": "Immersive Hotbar", "jar": "immersive-hotbar", "image": "immersivehotbar.png", "description": "Automatically hides the hotbar when idle for a cleaner screen." },
+            { "name": "Chat Animation", "jar": "chatanimation", "image": "chatanimation.png", "description": "Smoothly animates incoming chat messages." },
+            { "name": "Smooth GUI", "jar": "smoothgui", "image": "smoothgui.png", "description": "Adds smooth animations and transitions to menu screens." }
+          ]
+        },
+        {
+          "category": "Interface Customization",
+          "mods": [
+            { "name": "Mod Menu", "jar": "modmenu", "image": "modmenu.png", "description": "In-game menu to view installed mods and access their settings." },
+            { "name": "Tweakeroo", "jar": "tweakeroo", "image": "tweakeroo.png", "description": "A toolkit of small client-side tweaks and conveniences (free placement, auto-tools, and more)." }
+          ]
+        }
+      ]
     }
   }
 }

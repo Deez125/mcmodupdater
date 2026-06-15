@@ -41,7 +41,6 @@ These are **optional client-side mods**. They change your personal experience �
 
 - **Camera Utils** — `camerautils-fabric-1.1.2+26.1.2.jar` — Camera tweaks like freezing the camera and adjusting perspective.
 - **Freecam** — `freecam-fabric-1.4.0-rc.1+mc26.1.2.jar` — Detach your camera and fly around freely to view your surroundings.
-- **Flashback** — `Flashback-0.40.0-for-MC26.1.jar` — Powerful replay and recording tool for capturing and editing cinematic gameplay. *(Large download.)*
 
 ---
 

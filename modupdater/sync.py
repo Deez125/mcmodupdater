@@ -70,6 +70,83 @@ def _extract_jars(zip_path: Path, out_dir: Path) -> List[str]:
     return names
 
 
+def _remove_before_install(
+    mods_dir: Path, clean: bool, incoming_names, log: Callable[[str], None]
+) -> List[str]:
+    """Remove the right jars before laying down new ones, returning what was removed.
+
+    clean=False (update): remove only the jars WE installed last time (per
+    .modsync.json), leaving Essential's jars and personal mods alone.
+    clean=True (fresh install): wipe all jars, but keep the installer's Essential
+    jar when the incoming set doesn't include its own copy.
+    """
+    removed: List[str] = []
+    if clean:
+        incoming_has_essential = any(_is_essential_jar(n) for n in incoming_names)
+        for f in mods_dir.glob("*.jar"):
+            if _is_essential_jar(f.name) and not incoming_has_essential:
+                log(f"Keeping {f.name} (Essential — not included in this pack).")
+                continue
+            f.unlink()
+            removed.append(f.name)
+        if removed:
+            log(f"Cleared {len(removed)} existing mod(s) for a fresh install.")
+    else:
+        for name in read_state(mods_dir).get("managed", []):
+            f = mods_dir / name
+            if f.exists():
+                f.unlink()
+                removed.append(name)
+        if removed:
+            log(f"Removed {len(removed)} old mod(s) from the previous sync.")
+    return removed
+
+
+def install_jars(
+    mods_dir: str | Path,
+    jar_sources: Dict[str, str],
+    version: str,
+    log: Callable[[str], None] = lambda _msg: None,
+    progress: Callable[[float], None] = lambda _frac: None,
+    clean: bool = False,
+    fetch: Callable[[str, Path], object] | None = None,
+) -> Dict[str, List[str]]:
+    """Install a chosen set of jars into `mods_dir` from individual URLs.
+
+    `jar_sources` maps each jar's filename -> its download URL (required mods plus
+    whatever optional mods the user picked). Same safe-sync semantics as
+    `sync_mods`: only our managed jars are replaced, Essential is preserved.
+
+    `fetch` is injectable for testing; defaults to resources.fetch.
+    """
+    mods_dir = Path(mods_dir)
+    mods_dir.mkdir(parents=True, exist_ok=True)
+    if not jar_sources:
+        raise RuntimeError("No mods to install.")
+    if fetch is None:
+        from . import resources
+        fetch = resources.fetch
+
+    names = list(jar_sources)
+    removed = _remove_before_install(mods_dir, clean, names, log)
+
+    # Download every jar to a temp dir first, so a failed download can't leave the
+    # mods folder half-written.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        total = len(jar_sources)
+        for i, (name, url) in enumerate(jar_sources.items(), start=1):
+            log(f"Downloading {name}…")
+            fetch(url, tmp / name)
+            progress(i / total)
+        for name in names:
+            shutil.copyfile(tmp / name, mods_dir / name)
+
+    write_state(mods_dir, version, names)
+    log(f"Done — {len(names)} mod(s) installed in {mods_dir}")
+    return {"installed": names, "removed": removed}
+
+
 def sync_mods(
     mods_dir: str | Path,
     zip_path: str | Path,
@@ -99,28 +176,9 @@ def sync_mods(
     mods_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Decide what to remove before installing.
-    removed: List[str] = []
-    if clean:
-        zip_names = _zip_jar_names(zip_path)
-        pack_has_essential = any(_is_essential_jar(n) for n in zip_names)
-        for f in mods_dir.glob("*.jar"):
-            # Keep the installer's Essential jar when the pack doesn't supply one.
-            if _is_essential_jar(f.name) and not pack_has_essential:
-                log(f"Keeping {f.name} (Essential — not included in this pack).")
-                continue
-            f.unlink()
-            removed.append(f.name)
-        if removed:
-            log(f"Cleared {len(removed)} existing mod(s) for a fresh install.")
-    else:
-        previously_managed = read_state(mods_dir).get("managed", [])
-        for name in previously_managed:
-            f = mods_dir / name
-            if f.exists():
-                f.unlink()
-                removed.append(name)
-        if removed:
-            log(f"Removed {len(removed)} old mod(s) from the previous sync.")
+    removed = _remove_before_install(
+        mods_dir, clean, _zip_jar_names(zip_path) if clean else [], log
+    )
 
     # 2. Extract the new jars to a temp dir first (so a bad zip can't half-wreck
     #    the mods folder).

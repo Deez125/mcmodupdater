@@ -7,18 +7,21 @@ self._safe(...).
 
 from __future__ import annotations
 
-import tempfile
+import io
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import BooleanVar, filedialog
 
 import customtkinter as ctk
+import requests
+from PIL import Image, ImageDraw, ImageOps
 
 from .. import (
     config,
     essential,
     manifest,
     minecraft,
-    resources,
+    modsource,
     sync,
     version_utils,
 )
@@ -210,10 +213,11 @@ class VersionPage(Page):
         self.wiz.ctx["mods_dir"] = None
         self.wiz.ctx["install_name"] = None
         self.wiz.ctx["installer_file"] = None
+        self.wiz.ctx["selected_optional"] = None
         if self.wiz.ctx["mode"] == "full":
             self.wiz.show_page(EssentialPage)
         else:
-            self.wiz.show_page(SyncPage)
+            self.wiz.show_page(ModSelectPage)
 
 
 # --------------------------------------------------------------------------- #
@@ -417,16 +421,235 @@ class EssentialPage(Page):
         if inst:
             self.wiz.ctx["mods_dir"] = minecraft.mods_dir_for(inst)
             self.wiz.ctx["install_name"] = inst.name
-        self.wiz.show_page(SyncPage)
+        self.wiz.show_page(ModSelectPage)
 
 
 # --------------------------------------------------------------------------- #
-# 4. Download + sync mods
+# 4. Choose mods (the optional-mod picker)
+# --------------------------------------------------------------------------- #
+class ModSelectPage(Page):
+    THUMB = (104, 58)  # preview thumbnail (px)
+    RADIUS = 8
+    INACTIVE = ("#C62828", "#FF6B6B")  # standout colour for the INACTIVE badge
+
+    def on_show(self) -> None:
+        self._pool = ThreadPoolExecutor(max_workers=6)
+        self._img_refs: list = []     # keep CTkImage refs alive (Tk GC)
+        self._checks: list = []       # (BooleanVar, resolved_mod) — every optional row
+        self._sections: list = []     # per-category state dicts
+        title_block(
+            self, "Choose your mods",
+            "Required mods install automatically. Tick any optional extras you want.",
+        )
+        self.status = ctk.CTkLabel(self, text="Loading the mod list…", text_color=MUTED)
+        self.status.pack(pady=(0, 4))
+        self.bar = ctk.CTkProgressBar(self, width=320, mode="indeterminate")
+        self.bar.pack(pady=(0, 6))
+        self.bar.start()
+        self.wiz.run_async(
+            self._load, on_error=lambda e: self._safe(lambda: self._load_failed(e))
+        )
+
+    def on_hide(self) -> None:
+        try:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            pass
+
+    # -- load --
+    def _load(self) -> None:
+        data = self.wiz.ctx["manifest"]
+        version = self.wiz.ctx["version"]
+        ver = data["versions"][version]
+        self._src = modsource.ModSource(data["source"])
+        optional = [m for c in ver["optional"] for m in c["mods"]]
+        resolved = self._src.resolve_optional(version, optional)  # network
+        rmap = {r["name"]: r for r in resolved}
+        self._safe(lambda: self._build(ver, rmap))
+
+    def _load_failed(self, e: Exception) -> None:
+        self.bar.stop()
+        self.bar.pack_forget()
+        self.status.configure(text=f"Couldn't load the mod list: {e}", text_color=BAD)
+        ctk.CTkButton(self, text="← Back", fg_color="gray30", hover_color="gray25",
+                      command=self._go_back).pack(pady=8)
+
+    # -- build the list --
+    def _build(self, ver: dict, rmap: dict) -> None:
+        self.bar.stop()
+        self.bar.pack_forget()
+        self.status.pack_forget()
+
+        scroll = ctk.CTkScrollableFrame(self)
+        scroll.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+
+        # Required: one locked, checked, non-expandable row.
+        reqn = len(ver.get("required", []))
+        reqrow = ctk.CTkFrame(scroll, fg_color=("gray82", "gray20"), corner_radius=6)
+        reqrow.pack(fill="x", pady=(2, 8))
+        self._req_var = BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            reqrow, text=f"Required mods ({reqn})", variable=self._req_var,
+            state="disabled", font=ctk.CTkFont(size=15, weight="bold"),
+        ).pack(side="left", padx=10, pady=8)
+
+        # Optional categories — each collapsible with a section select-all checkbox.
+        for c in ver["optional"]:
+            self._add_category(scroll, c, rmap)
+
+        # Footer: select-all / clear / count + continue / back.
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.pack(fill="x", padx=16, pady=(0, 12))
+        ctk.CTkButton(footer, text="Select all", width=84, height=28, fg_color="gray30",
+                      hover_color="gray25", command=lambda: self._set_all(True)
+                      ).pack(side="left")
+        ctk.CTkButton(footer, text="Clear", width=64, height=28, fg_color="gray30",
+                      hover_color="gray25", command=lambda: self._set_all(False)
+                      ).pack(side="left", padx=6)
+        self._count = ctk.CTkLabel(footer, text="", text_color=MUTED)
+        self._count.pack(side="left", padx=8)
+        ctk.CTkButton(footer, text="Continue →", height=40, width=150,
+                      font=ctk.CTkFont(size=14, weight="bold"), command=self._continue
+                      ).pack(side="right")
+        ctk.CTkButton(footer, text="← Back", height=40, width=88, fg_color="gray30",
+                      hover_color="gray25", command=self._go_back
+                      ).pack(side="right", padx=(0, 8))
+        self._update_count()
+
+    def _add_category(self, parent, c: dict, rmap: dict) -> None:
+        block = ctk.CTkFrame(parent, fg_color="transparent")
+        block.pack(fill="x", pady=(8, 0))
+
+        header = ctk.CTkFrame(block, fg_color=("gray84", "gray23"), corner_radius=6)
+        header.pack(fill="x")
+        state = {"var": BooleanVar(value=False), "content": None, "arrow": None,
+                 "rows": [], "expanded": True}
+        ctk.CTkCheckBox(
+            header, text=c["category"], variable=state["var"],
+            font=ctk.CTkFont(size=15, weight="bold"),
+            command=lambda st=state: self._toggle_section(st),
+        ).pack(side="left", padx=10, pady=6)
+        state["arrow"] = ctk.CTkButton(
+            header, text="▾", width=34, fg_color="transparent",
+            hover_color=("gray74", "gray30"),
+            command=lambda st=state: self._collapse(st),
+        )
+        state["arrow"].pack(side="right", padx=4)
+
+        state["content"] = ctk.CTkFrame(block, fg_color="transparent")
+        state["content"].pack(fill="x")
+        for m in c["mods"]:
+            self._add_row(state["content"], rmap[m["name"]], state)
+        self._sections.append(state)
+
+    def _add_row(self, parent, r: dict, state: dict) -> None:
+        available = r.get("available", True)
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=3, padx=(14, 0))
+        row.grid_columnconfigure(2, weight=1)
+
+        var = BooleanVar(value=False)
+        self._checks.append((var, r))
+        state["rows"].append((var, r))
+        cb = ctk.CTkCheckBox(row, text="", width=24, variable=var,
+                             command=lambda st=state: self._on_mod_toggle(st))
+        cb.grid(row=0, column=0, rowspan=2, padx=(2, 8), sticky="n")
+        if not available:
+            cb.configure(state="disabled")
+
+        thumb = ctk.CTkLabel(row, text="", width=self.THUMB[0], height=self.THUMB[1],
+                             fg_color="gray20", corner_radius=self.RADIUS)
+        thumb.grid(row=0, column=1, rowspan=2, padx=(0, 10))
+        self._pool.submit(self._load_image, r["image_url"], thumb, not available)
+
+        namerow = ctk.CTkFrame(row, fg_color="transparent")
+        namerow.grid(row=0, column=2, sticky="w")
+        name_kw = {} if available else {"text_color": MUTED}
+        ctk.CTkLabel(namerow, text=r["name"], anchor="w",
+                     font=ctk.CTkFont(size=14, weight="bold"), **name_kw).pack(side="left")
+        if not available:
+            ctk.CTkLabel(namerow, text="  INACTIVE", text_color=self.INACTIVE,
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+        ctk.CTkLabel(row, text=r["description"], anchor="w", text_color=MUTED,
+                     wraplength=380, justify="left"
+                     ).grid(row=1, column=2, sticky="w")
+
+    def _load_image(self, url: str, label, dim: bool = False) -> None:
+        try:
+            resp = requests.get(url, timeout=20)
+            resp.raise_for_status()
+            pil = Image.open(io.BytesIO(resp.content)).convert("RGBA")
+            img = ImageOps.fit(pil, self.THUMB)          # cover + centre-crop to fill
+            if dim:
+                img = ImageOps.grayscale(img).convert("RGBA")
+            mask = Image.new("L", self.THUMB, 0)
+            ImageDraw.Draw(mask).rounded_rectangle(
+                [0, 0, self.THUMB[0] - 1, self.THUMB[1] - 1], radius=self.RADIUS, fill=255)
+            img.putalpha(mask)                            # rounded corners, no image edits
+            cimg = ctk.CTkImage(light_image=img, dark_image=img, size=self.THUMB)
+        except Exception:
+            return  # leave the placeholder; image is cosmetic
+
+        def apply() -> None:
+            if label.winfo_exists():
+                self._img_refs.append(cimg)
+                label.configure(image=cimg, text="", fg_color="transparent")
+        self._safe(apply)
+
+    # -- interactions --
+    def _collapse(self, state: dict) -> None:
+        state["expanded"] = not state["expanded"]
+        if state["expanded"]:
+            state["content"].pack(fill="x")
+            state["arrow"].configure(text="▾")
+        else:
+            state["content"].pack_forget()
+            state["arrow"].configure(text="▸")
+
+    def _toggle_section(self, state: dict) -> None:
+        val = state["var"].get()
+        for var, r in state["rows"]:
+            if r.get("available", True):
+                var.set(val)
+        self._update_count()
+
+    def _on_mod_toggle(self, state: dict) -> None:
+        avail = [(v, r) for v, r in state["rows"] if r.get("available", True)]
+        state["var"].set(bool(avail) and all(v.get() for v, _ in avail))
+        self._update_count()
+
+    def _set_all(self, value: bool) -> None:
+        for var, r in self._checks:
+            if r.get("available", True):
+                var.set(value)
+        for st in self._sections:
+            has_avail = any(r.get("available", True) for _, r in st["rows"])
+            st["var"].set(value if has_avail else False)
+        self._update_count()
+
+    def _update_count(self) -> None:
+        n = sum(1 for var, _ in self._checks if var.get())
+        self._count.configure(text=f"{n} selected")
+
+    def _continue(self) -> None:
+        self.wiz.ctx["selected_optional"] = [
+            {"filename": r["filename"], "download_url": r["download_url"]}
+            for var, r in self._checks
+            if var.get() and r.get("available", True)
+        ]
+        self.wiz.show_page(SyncPage)
+
+    def _go_back(self) -> None:
+        target = EssentialPage if self.wiz.ctx["mode"] == "full" else VersionPage
+        self.wiz.show_page(target)
+
+
+# --------------------------------------------------------------------------- #
+# 5. Download + install mods
 # --------------------------------------------------------------------------- #
 class SyncPage(Page):
     def on_show(self) -> None:
-        step = "Step 2 of 2 · " if self.wiz.ctx["mode"] == "full" else ""
-        title_block(self, f"{step}Installing mods")
+        title_block(self, "Installing mods")
 
         self.status = ctk.CTkLabel(self, text="", text_color=MUTED, wraplength=560)
         self.status.pack(pady=(0, 6))
@@ -513,18 +736,24 @@ class SyncPage(Page):
 
         clean = self.wiz.ctx["mode"] == "full"
 
+        selected = self.wiz.ctx.get("selected_optional", [])
+
         def work() -> None:
             data = self.wiz.ctx["manifest"]
-            url = manifest.mods_zip_url(data, version)
-            self._log("Downloading mods… (this can take a minute on a big pack)")
-            tmp_zip = Path(tempfile.gettempdir()) / f"mcmodupdater_mods_{version}.zip"
+            src = modsource.ModSource(data["source"])
+            self._log("Reading the mod list from GitHub…")
+            required = dict(src.required_jars(version))
+            jar_sources = dict(required)
+            for sel in selected:
+                jar_sources[sel["filename"]] = sel["download_url"]
+            self._log(
+                f"Installing {len(jar_sources)} mod(s) — "
+                f"{len(required)} required + {len(selected)} optional…"
+            )
             self._safe(lambda: (self.bar.stop(), self.bar.configure(mode="determinate"),
                                 self.bar.set(0)))
-            resources.fetch(url, tmp_zip, progress=self._set_progress)
-            self._log("Download complete. Syncing…")
-            self._safe(lambda: self.bar.set(0))
-            result = sync.sync_mods(
-                mods_dir, tmp_zip, version, log=self._log,
+            result = sync.install_jars(
+                mods_dir, jar_sources, version, log=self._log,
                 progress=self._set_progress, clean=clean,
             )
             self._safe(lambda: self._done(result))
@@ -644,6 +873,6 @@ class DonePage(Page):
     def _again(self) -> None:
         # Keep the loaded manifest; clear the per-run choices.
         for key in ("mode", "version", "mods_dir", "install_name",
-                    "installed_count", "installer_file"):
+                    "installed_count", "installer_file", "selected_optional"):
             self.wiz.ctx[key] = None
         self.wiz.show_page(WelcomePage)

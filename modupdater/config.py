@@ -61,16 +61,23 @@ def icon_path() -> Path | None:
 def manifest_source() -> str:
     """Where to load the manifest from.
 
-    Prefers MANIFEST_URL once you've set it to your Drive link. Until then, falls
-    back to a local `manifest.json` sitting next to the app (or in the current
-    folder) — so you can develop and test before anything is uploaded to Drive.
+    Priority:
+      1. $MCMODUPDATER_MANIFEST  — explicit override (testing).
+      2. A local `manifest.json` when running from source (dev) — so you can test
+         manifest changes before pushing. The frozen .exe skips this (it has no
+         local manifest), so end users always get the remote one.
+      3. MANIFEST_URL — the published remote manifest.
     """
+    env = os.environ.get("MCMODUPDATER_MANIFEST")
+    if env:
+        return env
+    if not getattr(sys, "frozen", False):
+        for base in (_app_dir(), Path.cwd()):
+            local = base / "manifest.json"
+            if local.exists():
+                return str(local)
     if MANIFEST_URL and not MANIFEST_URL.startswith("PUT_YOUR"):
         return MANIFEST_URL
-    for base in (_app_dir(), Path.cwd()):
-        local = base / "manifest.json"
-        if local.exists():
-            return str(local)
     return MANIFEST_URL
 
 

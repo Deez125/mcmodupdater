@@ -51,8 +51,14 @@ def _validate(data: dict) -> dict:
     versions = data.get("versions")
     if not isinstance(versions, dict) or not versions:
         raise ManifestError("Manifest has no 'versions' entries.")
+    # New (GitHub-folder) manifests carry a top-level 'source' block and read mods
+    # from per-version folders; legacy manifests use a per-version 'mods_zip'.
+    # Accept either so both load.
+    has_source = isinstance(data.get("source"), dict)
     for name, entry in versions.items():
-        if not isinstance(entry, dict) or "mods_zip" not in entry:
+        if not isinstance(entry, dict):
+            raise ManifestError(f"Version '{name}' must be an object.")
+        if not has_source and "mods_zip" not in entry:
             raise ManifestError(f"Version '{name}' is missing a 'mods_zip' link.")
     return data
 
